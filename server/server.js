@@ -9,7 +9,6 @@ const path = require("path");
 
 // Import route handlers
 const entriesRoutes = require("./routes/entries");
-const tagsRoutes = require("./routes/tags");
 const searchRoutes = require("./routes/search");
 
 // Initialize Express app
@@ -36,7 +35,6 @@ app.use((req, res, next) => {
 
 // API Routes
 app.use("/api/entries", entriesRoutes);
-app.use("/api/tags", tagsRoutes);
 app.use("/api/search", searchRoutes);
 
 // Serve static files in production

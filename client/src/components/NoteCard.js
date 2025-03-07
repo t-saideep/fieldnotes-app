@@ -1,12 +1,11 @@
-import React, { useState } from "react";
+import React from "react";
 import { motion } from "framer-motion";
-import TagBadge from "./TagBadge";
 import "../styles/components.css";
 
 /**
  * Note Card Component
  *
- * Displays a single note with its text, tags, and metadata.
+ * Displays a single note with its text and metadata.
  * Includes animations and interactive elements.
  *
  * @param {Object} props - Component props
@@ -16,9 +15,6 @@ import "../styles/components.css";
  * @returns {JSX.Element} Rendered note card component
  */
 const NoteCard = ({ entry, onEdit, onDelete }) => {
-  // State to track if tags are visible
-  const [showTags, setShowTags] = useState(false);
-
   // Function to format the date nicely
   const formatDate = (dateStr) => {
     try {
@@ -69,34 +65,6 @@ const NoteCard = ({ entry, onEdit, onDelete }) => {
     }
   };
 
-  // Handler for when a tag is clicked
-  const handleTagClick = (tagName) => {
-    try {
-      // Safety check
-      if (!tagName) return;
-
-      // Encode the tag name to ensure it's URL-safe
-      const encodedTagName = encodeURIComponent(tagName);
-
-      // Use a safer approach to navigate to the home page with the tag param
-      const baseUrl = window.location.origin; // Gets http(s)://hostname:port
-      const targetUrl = `${baseUrl}/?tag=${encodedTagName}`;
-
-      console.log(`Navigating to: ${targetUrl}`);
-
-      // Use replace instead of href for better performance
-      window.location.replace(targetUrl);
-    } catch (error) {
-      console.error(`Error navigating to tag "${tagName}":`, error);
-      alert(`Could not navigate to tag: ${error.message}`);
-    }
-  };
-
-  // Toggle tags visibility
-  const toggleTags = () => {
-    setShowTags(!showTags);
-  };
-
   // Animations for the card
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -118,42 +86,6 @@ const NoteCard = ({ entry, onEdit, onDelete }) => {
       layout
     >
       <p className="note-card__text">{entry.raw_text}</p>
-
-      {/* Tags toggle link - only show if there are tags */}
-      {entry.tags && entry.tags.length > 0 && (
-        <>
-          <motion.span
-            className="tags-toggle"
-            onClick={toggleTags}
-            initial={{ opacity: 0.8 }}
-            whileHover={{ opacity: 1 }}
-          >
-            {showTags ? "Hide tags" : `Show tags (${entry.tags.length})`}
-          </motion.span>
-
-          {/* Tags section - hidden by default */}
-          <motion.div
-            className={`tags-container ${showTags ? "" : "hidden"}`}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{
-              opacity: showTags ? 1 : 0,
-              height: showTags ? "auto" : 0,
-              marginTop: showTags ? "0.5rem" : 0,
-              marginBottom: showTags ? "1rem" : 0,
-            }}
-            transition={{ duration: 0.3 }}
-          >
-            {entry.tags.map((tag) => (
-              <TagBadge
-                key={tag.id}
-                tag={tag}
-                clickable={true}
-                onClick={() => handleTagClick(tag.name)}
-              />
-            ))}
-          </motion.div>
-        </>
-      )}
 
       {/* Metadata and actions */}
       <div className="note-card__meta">

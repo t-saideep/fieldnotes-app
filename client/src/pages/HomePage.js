@@ -5,7 +5,7 @@ import NoteForm from "../components/NoteForm";
 import NoteCard from "../components/NoteCard";
 import SearchBar from "../components/SearchBar";
 import SearchResults from "../components/SearchResults";
-import { EntriesAPI, SearchAPI, TagsAPI } from "../services/api";
+import { EntriesAPI, SearchAPI } from "../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
 
 /**
@@ -13,56 +13,39 @@ import { useNavigate, useLocation } from "react-router-dom";
  *
  * The main page of the application where users can:
  * - Add new notes
- * - View existing notes
- * - Edit or delete notes
- * - Search notes
- *
- * @returns {JSX.Element} Rendered home page
+ * - Search for existing notes
+ * - View and interact with notes
  */
 const HomePage = () => {
-  // State
-  const [entries, setEntries] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [editingEntry, setEditingEntry] = useState(null);
-  const [error, setError] = useState(null);
-
-  // Search state
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState(null);
-  const [searchError, setSearchError] = useState(null);
-
-  // Tag filter state
-  const [tagFilter, setTagFilter] = useState(null);
-
+  // Navigation and location hooks
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Fetch entries on component mount and check for URL parameters
-  useEffect(() => {
-    // Check for tag parameters in the URL
-    const searchParams = new URLSearchParams(window.location.search);
-    const tagParam = searchParams.get("tag");
+  // Parse query parameters
+  const query = new URLSearchParams(location.search);
+  const searchParam = query.get("search");
 
-    if (tagParam) {
-      try {
-        console.log(`Found tag parameter in URL: ${tagParam}`);
-        setTagFilter(tagParam);
-        // Use a safe way to decode the tag parameter
-        const decodedTag = decodeURIComponent(tagParam);
-        console.log(`Processing tag parameter: "${decodedTag}"`);
-        fetchEntriesByTag(decodedTag);
-      } catch (error) {
-        console.error("Error processing tag parameter:", error);
-        setError(`Failed to load entries for tag: ${error.message}`);
-        // Fall back to loading all entries if there's an error with the tag
-        fetchEntries();
-      }
+  // State for entries/notes
+  const [entries, setEntries] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Search state
+  const [searchResults, setSearchResults] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Edit state
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Initial data loading
+  useEffect(() => {
+    if (searchParam) {
+      handleSearch(searchParam);
     } else {
       fetchEntries();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParam]);
 
   /**
    * Fetch all entries from the API
@@ -75,72 +58,7 @@ const HomePage = () => {
       setError(null);
     } catch (err) {
       console.error("Error fetching entries:", err);
-      setError("Failed to load notes. Please try again later.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  /**
-   * Fetch entries that have a specific tag
-   * @param {string} tagName - The tag name to filter by
-   */
-  const fetchEntriesByTag = async (tagName) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      console.log(`Requesting entries for tag: ${tagName}`);
-
-      // Wrap API call in a try-catch for better error handling
-      let entries;
-      try {
-        entries = await TagsAPI.getEntriesByName(tagName);
-      } catch (apiError) {
-        console.error(
-          `API error fetching entries for tag "${tagName}":`,
-          apiError
-        );
-        throw new Error(`API error: ${apiError.message || "Unknown error"}`);
-      }
-
-      console.log(
-        `Successfully fetched ${entries.length} entries for tag "${tagName}"`
-      );
-
-      // Set these as search results for consistency in display
-      if (entries.length === 0) {
-        setSearchResults({
-          entries: [],
-          type: "tag",
-          tag: tagName,
-          summary: `No entries found with tag "${tagName}"`,
-        });
-      } else {
-        setSearchResults({
-          entries: entries,
-          type: "tag",
-          tag: tagName,
-          summary: `Showing ${entries.length} ${
-            entries.length === 1 ? "entry" : "entries"
-          } tagged with "${tagName}"`,
-        });
-      }
-    } catch (err) {
-      console.error("Error fetching entries by tag:", err);
-
-      // Provide a more specific error message based on the error
-      let errorMessage;
-      if (err.message && err.message.includes("was not found")) {
-        errorMessage = `Tag "${tagName}" was not found. Please check if the tag exists.`;
-      } else {
-        errorMessage = `Failed to load entries with tag "${tagName}". ${
-          err.message || "Please try again."
-        }`;
-      }
-
-      setSearchError(errorMessage);
-      setSearchResults(null);
+      setError("Failed to load notes. Please try refreshing the page.");
     } finally {
       setIsLoading(false);
     }
@@ -175,7 +93,6 @@ const HomePage = () => {
 
       // Clear search results when creating a new entry
       setSearchResults(null);
-      setTagFilter(null);
 
       // Clear URL parameters
       window.history.replaceState(null, "", "/");
@@ -198,21 +115,24 @@ const HomePage = () => {
       setIsProcessing(true);
       const updatedEntry = await EntriesAPI.update(editingEntry.id, text);
 
+      // Update the entries array with the updated entry
       setEntries(
-        entries.map((entry) =>
-          entry.id === updatedEntry.id ? updatedEntry : entry
-        )
+        entries.map((e) => (e.id === updatedEntry.id ? updatedEntry : e))
       );
 
+      // If this entry is in search results, update it there too
+      if (searchResults && searchResults.entries) {
+        setSearchResults({
+          ...searchResults,
+          entries: searchResults.entries.map((e) =>
+            e.id === updatedEntry.id ? updatedEntry : e
+          ),
+        });
+      }
+
+      // Clear editing state
       setEditingEntry(null);
       setError(null);
-
-      // Clear search results when updating an entry
-      setSearchResults(null);
-      setTagFilter(null);
-
-      // Clear URL parameters
-      window.history.replaceState(null, "", "/");
     } catch (err) {
       console.error("Error updating entry:", err);
       setError("Failed to update your note. Please try again.");
@@ -223,29 +143,24 @@ const HomePage = () => {
 
   /**
    * Handle deleting an entry
-   * @param {number} id - The entry ID to delete
+   * @param {number} id - The ID of the entry to delete
    */
   const handleDeleteEntry = async (id) => {
-    // Add confirmation dialog before deleting
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this note?"
-    );
-    if (!confirmed) return;
+    if (!window.confirm("Are you sure you want to delete this note?")) {
+      return;
+    }
 
     try {
       await EntriesAPI.delete(id);
-      setEntries(entries.filter((entry) => entry.id !== id));
 
-      // If currently editing this entry, cancel the edit
-      if (editingEntry && editingEntry.id === id) {
-        setEditingEntry(null);
-      }
+      // Remove from entries array
+      setEntries(entries.filter((e) => e.id !== id));
 
-      // If this entry is in search results, update them
+      // If this entry is in search results, remove it there too
       if (searchResults && searchResults.entries) {
         setSearchResults({
           ...searchResults,
-          entries: searchResults.entries.filter((entry) => entry.id !== id),
+          entries: searchResults.entries.filter((e) => e.id !== id),
         });
       }
 
@@ -257,240 +172,149 @@ const HomePage = () => {
   };
 
   /**
-   * Set an entry for editing
-   * @param {Object} entry - The entry to edit
+   * Set the current entry being edited
+   * @param {object} entry - The entry to edit
    */
   const handleEditEntry = (entry) => {
     setEditingEntry(entry);
-
-    // Scroll to the form
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    // Scroll to the edit form
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   /**
-   * Cancel editing the current entry
+   * Cancel editing and clear edit state
    */
   const handleCancelEdit = () => {
     setEditingEntry(null);
   };
 
   /**
-   * Handle search submission
+   * Handle search query submission
    * @param {string} query - The search query
    */
   const handleSearch = async (query) => {
-    if (!query.trim()) {
+    if (!query || query.trim() === "") {
+      setSearchResults(null);
+      navigate("/");
       return;
     }
 
     try {
       setIsSearching(true);
-      setSearchError(null);
-      setSearchResults(null);
+      setError(null);
 
-      // Clear URL parameters
-      navigate(location.pathname, { replace: true });
+      // Update URL to include search parameter
+      navigate(`/?search=${encodeURIComponent(query)}`, { replace: true });
 
-      console.log("Searching for:", query);
+      // Execute search
       const results = await SearchAPI.search(query);
-
-      // Log search results for debugging
-      console.log("Search results:", results);
-
-      if (results) {
-        setSearchResults(results);
-      } else {
-        setSearchError("No results found");
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-      setSearchError(error.message || "Failed to perform search");
+      setSearchResults(results);
+    } catch (err) {
+      console.error("Search error:", err);
+      setError("Error processing search. Please try a different query.");
+      setSearchResults(null);
     } finally {
       setIsSearching(false);
     }
   };
 
   /**
-   * Clear search results and go back to showing all entries
+   * Clear current search results
    */
   const handleClearSearch = () => {
     setSearchResults(null);
-    setSearchError(null);
-    setTagFilter(null);
-
-    // Clear URL parameters
-    window.history.replaceState(null, "", "/");
-
-    // Reload all entries
-    fetchEntries();
+    // Remove search parameter from URL
+    navigate("/", { replace: true });
   };
 
-  // Page animations
-  const pageVariants = {
-    initial: { opacity: 0 },
-    in: { opacity: 1, transition: { duration: 0.5 } },
-    out: { opacity: 0, transition: { duration: 0.5 } },
+  // Main content based on current state
+  const renderMainContent = () => {
+    // Show error message if there is an error
+    if (error) {
+      return (
+        <motion.div
+          className="error-message"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+        >
+          <p>{error}</p>
+          <button onClick={() => setError(null)}>Dismiss</button>
+        </motion.div>
+      );
+    }
+
+    // Show search results if available
+    if (searchResults) {
+      return (
+        <div className="content-section">
+          <div className="section-header">
+            <h2>Search Results</h2>
+            <button
+              className="btn btn--outline"
+              onClick={handleClearSearch}
+              disabled={isSearching}
+            >
+              Clear Search
+            </button>
+          </div>
+          <SearchResults results={searchResults} onClear={handleClearSearch} />
+        </div>
+      );
+    }
+
+    // Show entries/notes
+    return (
+      <div className="content-section">
+        <h2 className="section-title">Your Notes</h2>
+        {isLoading ? (
+          <p className="loading-message">Loading notes...</p>
+        ) : entries.length === 0 ? (
+          <p className="empty-message">No notes yet. Create your first one!</p>
+        ) : (
+          <div className="entries-grid">
+            {entries.map((entry) => (
+              <NoteCard
+                key={entry.id}
+                entry={entry}
+                onEdit={handleEditEntry}
+                onDelete={handleDeleteEntry}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
-    <motion.div
-      initial="initial"
-      animate="in"
-      exit="out"
-      variants={pageVariants}
-    >
+    <div className="page">
       <Header />
+      <main className="main-content">
+        <div className="container">
+          <div className="search-section">
+            <SearchBar
+              initialQuery={searchParam || ""}
+              onSearch={handleSearch}
+              isSearching={isSearching}
+            />
+          </div>
 
-      <div className="container">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          {/* Search Bar */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            <SearchBar onSearch={handleSearch} isSearching={isSearching} />
+          <div className="form-section">
+            <NoteForm
+              initialText={editingEntry ? editingEntry.raw_text : ""}
+              isSubmitting={isProcessing}
+              onSubmit={editingEntry ? handleUpdateEntry : handleCreateEntry}
+              onCancel={editingEntry ? handleCancelEdit : null}
+              title={editingEntry ? "Edit Note" : "Add Note"}
+              submitLabel={editingEntry ? "Update" : "Save Note"}
+            />
+          </div>
 
-            {searchError && (
-              <div
-                style={{
-                  backgroundColor: "#ffebee",
-                  color: "#c62828",
-                  padding: "0.75rem 1rem",
-                  borderRadius: "var(--border-radius)",
-                  marginBottom: "1rem",
-                  fontSize: "0.9rem",
-                }}
-              >
-                {searchError}
-              </div>
-            )}
-          </motion.div>
-
-          <h1 style={{ marginBottom: "1.5rem" }}>
-            {editingEntry ? "Edit Note" : "Add New Note"}
-          </h1>
-
-          {error && (
-            <div
-              style={{
-                backgroundColor: "#ffebee",
-                color: "#c62828",
-                padding: "0.75rem 1rem",
-                borderRadius: "var(--border-radius)",
-                marginBottom: "1rem",
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          <NoteForm
-            initialText={editingEntry ? editingEntry.raw_text : ""}
-            onSubmit={editingEntry ? handleUpdateEntry : handleCreateEntry}
-            isProcessing={isProcessing}
-          />
-
-          {editingEntry && (
-            <motion.button
-              className="btn btn--outline"
-              onClick={handleCancelEdit}
-              style={{ marginTop: "-1rem", marginBottom: "2rem" }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Cancel Editing
-            </motion.button>
-          )}
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-        >
-          {/* Show search results if available, otherwise show normal content */}
-          {searchResults ? (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "1rem",
-                }}
-              >
-                <h2>
-                  {tagFilter ? `Tagged with "${tagFilter}"` : "Search Results"}
-                </h2>
-                <motion.button
-                  className="btn btn--outline btn--small"
-                  onClick={handleClearSearch}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Back to All Notes
-                </motion.button>
-              </div>
-              <SearchResults
-                results={searchResults}
-                onEditEntry={handleEditEntry}
-                onDeleteEntry={handleDeleteEntry}
-              />
-            </>
-          ) : (
-            <>
-              <h2 style={{ marginBottom: "1.5rem" }}>Your Notes</h2>
-
-              {isLoading ? (
-                <div style={{ textAlign: "center", padding: "2rem" }}>
-                  <div
-                    className="loader"
-                    style={{ width: "30px", height: "30px" }}
-                  ></div>
-                  <p style={{ marginTop: "1rem" }}>Loading your notes...</p>
-                </div>
-              ) : entries.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "3rem 1rem",
-                    backgroundColor: "var(--card-color)",
-                    borderRadius: "var(--border-radius)",
-                    boxShadow: "var(--box-shadow)",
-                  }}
-                >
-                  <h3>No notes yet</h3>
-                  <p style={{ margin: "1rem 0" }}>
-                    Add your first note above to get started!
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  {entries.map((entry) => (
-                    <NoteCard
-                      key={entry.id}
-                      entry={entry}
-                      onEdit={handleEditEntry}
-                      onDelete={handleDeleteEntry}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </motion.div>
-      </div>
-    </motion.div>
+          {renderMainContent()}
+        </div>
+      </main>
+    </div>
   );
 };
 

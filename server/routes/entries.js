@@ -18,18 +18,8 @@ router.get("/", async (req, res) => {
 
     const entries = await Entry.getAll(limit, offset);
 
-    // For each entry, get its tags
-    const entriesWithTags = await Promise.all(
-      entries.map(async (entry) => {
-        const tags = await Entry.getTags(entry.id);
-        return {
-          ...entry,
-          tags,
-        };
-      })
-    );
-
-    res.json(entriesWithTags);
+    // Return entries directly - they now have empty tags arrays for compatibility
+    res.json(entries);
   } catch (error) {
     console.error("Error getting entries:", error);
     res.status(500).json({ error: "Failed to retrieve entries" });
@@ -48,12 +38,8 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ error: "Entry not found" });
     }
 
-    const tags = await Entry.getTags(entry.id);
-
-    res.json({
-      ...entry,
-      tags,
-    });
+    // Entry already has empty tags array for compatibility
+    res.json(entry);
   } catch (error) {
     console.error("Error getting entry:", error);
     res.status(500).json({ error: "Failed to retrieve entry" });
@@ -100,15 +86,11 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ error: "Entry not found" });
     }
 
-    // For simplicity, we'll just update the text without reprocessing tags
-    // In a full implementation, you might want to delete old tags and reprocess
+    // Update the entry text
     const updatedEntry = await Entry.update(req.params.id, text);
-    const tags = await Entry.getTags(req.params.id);
 
-    res.json({
-      ...updatedEntry,
-      tags,
-    });
+    // Entry already has empty tags array for compatibility
+    res.json(updatedEntry);
   } catch (error) {
     console.error("Error updating entry:", error);
     res.status(500).json({ error: "Failed to update entry" });

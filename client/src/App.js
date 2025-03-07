@@ -6,9 +6,8 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
 import HomePage from "./pages/HomePage";
-import TagsPage from "./pages/TagsPage";
+import SearchPage from "./pages/SearchPage";
 import "./styles/index.css";
 import "./styles/components.css";
 
@@ -25,26 +24,22 @@ const SearchRedirect = () => {
 /**
  * Main App Component
  *
- * Sets up routing and provides the main structure for the application.
- * Uses React Router for navigation and Framer Motion for page transitions.
- * The search functionality is now integrated into the home page.
+ * This is the root component of the application that sets up routing.
  *
- * @returns {JSX.Element} Rendered app component
+ * @returns {JSX.Element} The rendered app with routing
  */
-const App = () => {
+function App() {
   return (
     <Router>
-      <AnimatePresence mode="wait">
+      <div className="App">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/tags" element={<TagsPage />} />
-          {/* Redirect old search URLs to home page, preserving parameters */}
           <Route path="/search" element={<SearchRedirect />} />
-          {/* Add more routes as needed */}
+          <Route path="*" element={<HomePage />} />
         </Routes>
-      </AnimatePresence>
+      </div>
     </Router>
   );
-};
+}
 
 export default App;

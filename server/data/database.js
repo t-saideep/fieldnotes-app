@@ -82,30 +82,6 @@ function initDatabase() {
       }
     });
 
-    // Create Tags table
-    db.run(`
-      CREATE TABLE IF NOT EXISTS tags (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        type TEXT NOT NULL,
-        normalized_name TEXT NOT NULL,
-        UNIQUE(normalized_name, type)
-      )
-    `);
-
-    // Create EntryTags table (junction table for many-to-many relationship)
-    db.run(`
-      CREATE TABLE IF NOT EXISTS entry_tags (
-        entry_id INTEGER NOT NULL,
-        tag_id INTEGER NOT NULL,
-        value TEXT,
-        metadata TEXT,
-        PRIMARY KEY (entry_id, tag_id),
-        FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
-        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-      )
-    `);
-
     console.log("Database schema initialized");
   });
 }

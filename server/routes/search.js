@@ -5,7 +5,6 @@
 const express = require("express");
 const router = express.Router();
 const { searchAndAnswer } = require("../llm/noteService");
-const { Tag } = require("../data/models");
 
 /**
  * Search notes and get AI-generated answers
@@ -36,32 +35,6 @@ router.post("/", async (req, res) => {
       error: "Error processing search request",
       message: error.message,
     });
-  }
-});
-
-/**
- * GET /api/search/tags
- * Search for tags (for autocomplete/suggestions)
- */
-router.get("/tags", async (req, res) => {
-  try {
-    const { query, type } = req.query;
-
-    if (!query || typeof query !== "string") {
-      // If no query, return all tags grouped by type
-      const allTags = await Tag.getAll(type || null);
-      return res.json(allTags);
-    }
-
-    const tags = await Tag.search(query);
-
-    // If type filter is specified, filter the results
-    const filteredTags = type ? tags.filter((tag) => tag.type === type) : tags;
-
-    res.json(filteredTags);
-  } catch (error) {
-    console.error("Error searching tags:", error);
-    res.status(500).json({ error: "Failed to search tags" });
   }
 });
 
