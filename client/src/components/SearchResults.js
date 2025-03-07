@@ -67,7 +67,7 @@ const SearchResults = ({ results, onEditEntry, onDeleteEntry }) => {
               borderRadius: "var(--border-radius)",
               backgroundColor: isTagFilter
                 ? "var(--card-color)"
-                : "var(--primary-light)",
+                : "rgba(211, 84, 0, 0.15)",
               boxShadow: "var(--box-shadow)",
             }}
           >

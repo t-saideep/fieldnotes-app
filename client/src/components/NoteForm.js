@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import "../styles/components.css";
 
@@ -11,12 +11,37 @@ import "../styles/components.css";
  * @param {Object} props - Component props
  * @param {string} props.initialText - Initial text value (for editing)
  * @param {Function} props.onSubmit - Function called when form is submitted
- * @param {boolean} props.isProcessing - Flag indicating if form is processing
+ * @param {boolean} props.isSubmitting - Flag indicating if form is processing
+ * @param {Function} props.onCancel - Optional function to cancel editing
+ * @param {string} props.title - Optional form title
+ * @param {string} props.submitLabel - Optional submit button label
  * @returns {JSX.Element} Rendered form component
  */
-const NoteForm = ({ initialText = "", onSubmit, isProcessing = false }) => {
+const NoteForm = ({
+  initialText = "",
+  onSubmit,
+  isSubmitting = false,
+  onCancel = null,
+  title = "Add Note",
+  submitLabel = "Save Note",
+}) => {
   const [text, setText] = useState(initialText);
   const [error, setError] = useState("");
+  const [previousSubmitting, setPreviousSubmitting] = useState(false);
+
+  // Update text when initialText changes (e.g., when editing a different note)
+  useEffect(() => {
+    setText(initialText);
+  }, [initialText]);
+
+  // Clear the form when submission completes (when isSubmitting changes from true to false)
+  useEffect(() => {
+    // Clear text only if we were submitting, now we're not, and there's no initialText (meaning it's a new note, not an edit)
+    if (previousSubmitting && !isSubmitting && !initialText) {
+      setText("");
+    }
+    setPreviousSubmitting(isSubmitting);
+  }, [isSubmitting, initialText, previousSubmitting]);
 
   /**
    * Handle form submission
@@ -55,7 +80,7 @@ const NoteForm = ({ initialText = "", onSubmit, isProcessing = false }) => {
               if (error) setError("");
             }}
             placeholder="Enter your note here... (e.g., 'Laya fell asleep at 8pm')"
-            disabled={isProcessing}
+            disabled={isSubmitting}
             whileFocus={{ scale: 1.01 }}
             transition={{ type: "spring", stiffness: 300 }}
           />
@@ -65,19 +90,17 @@ const NoteForm = ({ initialText = "", onSubmit, isProcessing = false }) => {
         <motion.button
           type="submit"
           className="btn btn--primary"
-          disabled={isProcessing}
+          disabled={isSubmitting}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          {isProcessing ? (
+          {isSubmitting ? (
             <>
               <span className="loader" style={{ marginRight: "0.5rem" }}></span>
               Processing...
             </>
-          ) : initialText ? (
-            "Update Note"
           ) : (
-            "Save Note"
+            submitLabel
           )}
         </motion.button>
       </form>

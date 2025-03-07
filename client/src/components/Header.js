@@ -82,21 +82,6 @@ const Header = () => {
                 Home
               </a>
             </motion.li>
-            <motion.li
-              whileHover={{ y: -2 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <a
-                href="/tags"
-                style={{
-                  color: "white",
-                  textDecoration: "none",
-                  fontWeight: "500",
-                }}
-              >
-                Tags
-              </a>
-            </motion.li>
           </ul>
         </nav>
       </div>

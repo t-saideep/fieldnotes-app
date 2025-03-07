@@ -7,7 +7,6 @@ import {
   useLocation,
 } from "react-router-dom";
 import HomePage from "./pages/HomePage";
-import SearchPage from "./pages/SearchPage";
 import "./styles/index.css";
 import "./styles/components.css";
 

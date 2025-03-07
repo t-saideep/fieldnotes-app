@@ -8,9 +8,10 @@
 }
 
 :root {
-  --primary-color: #3f51b5;
-  --primary-dark: #303f9f;
-  --primary-light: #c5cae9;
+  --primary-color: #d35400;
+  --primary-dark: #a04000;
+  --primary-light: #f39c12;
+  --primary-rgb: 211, 84, 0;
   --secondary-color: #ff4081;
   --text-primary: #212121;
   --text-secondary: #757575;

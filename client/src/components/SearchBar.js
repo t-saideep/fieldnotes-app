@@ -44,7 +44,8 @@ const SearchBar = ({ onSearch, isSearching = false }) => {
       transition={{ duration: 0.5 }}
     >
       <form onSubmit={handleSubmit}>
-        <div style={{ position: "relative" }}>
+        {/* Search input container */}
+        <div style={{ position: "relative", marginBottom: "12px" }}>
           {/* Search icon */}
           <span className="search-icon">
             {isSearching ? (
@@ -78,8 +79,10 @@ const SearchBar = ({ onSearch, isSearching = false }) => {
             whileFocus={{ scale: 1.01 }}
             transition={{ type: "spring", stiffness: 300 }}
           />
+        </div>
 
-          {/* Search button - visible on all screens */}
+        {/* Search button in its own container */}
+        <div className="search-button-container">
           <motion.button
             type="button"
             className="search-button"
@@ -87,9 +90,18 @@ const SearchBar = ({ onSearch, isSearching = false }) => {
             disabled={isSearching || !query.trim()}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            aria-label="Search"
           >
-            Search
+            {isSearching ? (
+              <>
+                <span
+                  className="loader"
+                  style={{ marginRight: "0.5rem" }}
+                ></span>
+                Searching...
+              </>
+            ) : (
+              "Search"
+            )}
           </motion.button>
         </div>
       </form>
