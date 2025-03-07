@@ -123,7 +123,35 @@ export const EntriesAPI = {
   create: async (text) => {
     try {
       const response = await api.post("/entries", { text });
-      return response.data;
+
+      // Handle the new response format
+      const data = response.data;
+
+      // If the response has an entry property (new format), use that
+      const entry = data.entry || data;
+
+      // Validate and normalize the entry to ensure all required fields are present
+      if (entry) {
+        // Ensure created_at is valid
+        if (!entry.created_at || entry.created_at === "Invalid Date") {
+          entry.created_at = new Date().toISOString();
+        }
+
+        // Ensure tags are present
+        if (!entry.tags) {
+          entry.tags = [];
+        }
+
+        // Log for debugging
+        console.log("Processed entry data:", {
+          id: entry.id,
+          created_at: entry.created_at,
+          has_tags: Array.isArray(entry.tags),
+          text_length: entry.raw_text?.length,
+        });
+      }
+
+      return data;
     } catch (error) {
       console.error("Error creating entry:", error);
       throw error;

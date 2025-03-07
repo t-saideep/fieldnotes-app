@@ -23,6 +23,106 @@ const openai = new OpenAI({
 
 // Model configuration
 const MODEL_NAME = "gpt-4o-mini";
+const EMBEDDING_MODEL = "text-embedding-3-small";
+
+/**
+ * Generate embeddings for text
+ * @param {string} text - The text to generate embeddings for
+ * @returns {Promise<Float32Array>} The embeddings as a Float32Array
+ */
+async function generateEmbedding(text) {
+  try {
+    // Check if API key is valid first
+    if (!apiKey || apiKey.trim() === "") {
+      throw new Error(
+        "OpenAI API key is missing or invalid. Please set OPENAI_API_KEY in server/.env file."
+      );
+    }
+
+    console.log("Calling OpenAI to generate embeddings...");
+    const response = await openai.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: text,
+    });
+
+    if (!response.data || !response.data[0] || !response.data[0].embedding) {
+      throw new Error("OpenAI returned an invalid embedding response");
+    }
+
+    console.log("Successfully received embeddings from OpenAI");
+    return response.data[0].embedding;
+  } catch (error) {
+    // Provide more helpful error messages based on error type
+    if (error.status === 401) {
+      console.error(
+        "Authentication error with OpenAI API. Please check your API key in server/.env file."
+      );
+    } else if (error.status === 429) {
+      console.error("OpenAI API rate limit exceeded. Please try again later.");
+    } else if (error.code === "ENOTFOUND" || error.code === "ETIMEDOUT") {
+      console.error(
+        "Network error when connecting to OpenAI. Please check your internet connection."
+      );
+    }
+
+    console.error("Error generating embeddings:", error);
+    throw error;
+  }
+}
+
+/**
+ * Answer a search query with the provided entries
+ * @param {string} query - The user's search query
+ * @param {Array<object>} entries - Array of entries relevant to the query
+ * @returns {Promise<string>} The LLM's answer to the query
+ */
+async function answerQuery(query, entries) {
+  try {
+    // Check if API key is valid first
+    if (!apiKey || apiKey.trim() === "") {
+      return `I couldn't answer your query because the OpenAI API key is missing. Please set OPENAI_API_KEY in server/.env file.`;
+    }
+
+    // Format the entries for prompt
+    const formattedEntries = entries
+      .map(
+        (entry, index) =>
+          `Entry ${index + 1} [ID: ${entry.id}]: ${entry.raw_text}`
+      )
+      .join("\n\n");
+
+    console.log(`Generating answer using ${entries.length} entries...`);
+
+    const response = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a helpful assistant that answers questions based on provided notes. Your answers are clear, concise, and only reference information explicitly in the notes. If the notes don't have the information, say so clearly.",
+        },
+        {
+          role: "user",
+          content: `I have the following personal notes:\n\n${formattedEntries}\n\nBased only on these notes, answer this question: ${query}`,
+        },
+      ],
+      temperature: 0.3,
+    });
+
+    return response.choices[0].message.content;
+  } catch (error) {
+    console.error("Error generating answer:", error);
+
+    // Provide a useful error message
+    if (error.status === 401) {
+      return `I couldn't answer your query because of an authentication error with OpenAI. Please check your API key in server/.env file.`;
+    } else if (error.status === 429) {
+      return `I couldn't answer your query because the OpenAI API rate limit was exceeded. Please try again later.`;
+    } else {
+      return `I couldn't generate an answer for this query due to an API error. Please check server logs for details.`;
+    }
+  }
+}
 
 /**
  * Extract structured information from a note using OpenAI
@@ -95,58 +195,6 @@ IMPORTANT RULES:
   } catch (error) {
     console.error("Error extracting structured info:", error);
     throw new Error(`Failed to extract structured info: ${error.message}`);
-  }
-}
-
-/**
- * Answer a search query based on relevant entries
- * @param {string} query - The user's search query
- * @param {Array<object>} relevantEntries - Array of entries relevant to the query
- * @returns {Promise<string>} The LLM's answer to the query
- */
-async function answerQuery(query, relevantEntries) {
-  try {
-    // Format the entries for the prompt
-    const formattedEntries = relevantEntries
-      .map(
-        (entry, index) =>
-          `Entry ${index + 1} [ID: ${entry.id}]: ${entry.raw_text}`
-      )
-      .join("\n\n");
-
-    const prompt = `
-You are an AI assistant helping to find relevant information in personal notes.
-
-Based on these relevant notes:
-${formattedEntries}
-
-Answer the user's question: "${query}"
-
-Follow these rules:
-1. Only use information directly stated in the provided notes.
-2. If the question is asking to find or list entries, mention the Entry IDs that match.
-3. If the notes don't contain enough information to answer, say so clearly.
-4. Keep your answer concise and to the point.
-5. If applicable, organize information in a clear, readable format.
-`;
-
-    const response = await openai.chat.completions.create({
-      model: MODEL_NAME,
-      messages: [
-        {
-          role: "developer",
-          content:
-            "You are a helpful assistant that answers questions based on provided notes. Your answers are clear, concise, and only reference information explicitly in the notes.",
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.7,
-    });
-
-    return response.choices[0].message.content;
-  } catch (error) {
-    console.error("Error answering query:", error);
-    throw new Error(`Failed to answer query: ${error.message}`);
   }
 }
 
@@ -228,4 +276,5 @@ module.exports = {
   extractStructuredInfo,
   answerQuery,
   parseSearchQuery,
+  generateEmbedding,
 };

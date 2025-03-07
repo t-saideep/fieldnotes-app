@@ -16,6 +16,21 @@ if (!fs.existsSync(dataDir)) {
 // Database file path
 const dbPath = path.join(dataDir, "fieldnotes.db");
 
+// Try to load VSS configuration
+let vssExtensionPath = "sqlite-vss";
+try {
+  const configPath = path.join(__dirname, "..", "vss-config.json");
+  if (fs.existsSync(configPath)) {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    if (config.extensionPath) {
+      vssExtensionPath = config.extensionPath;
+      console.log(`Using VSS extension path from config: ${vssExtensionPath}`);
+    }
+  }
+} catch (error) {
+  console.warn("Error loading VSS config:", error.message);
+}
+
 // Create a database connection
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
@@ -43,6 +58,29 @@ function initDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Check if embedding column exists and add it if it doesn't
+    db.get("PRAGMA table_info(entries)", (err, rows) => {
+      if (err) {
+        console.error("Error checking table schema:", err);
+        return;
+      }
+
+      // Look for embedding column
+      const hasEmbeddingColumn =
+        rows && rows.some && rows.some((row) => row.name === "embedding");
+
+      if (!hasEmbeddingColumn) {
+        console.log("Adding embedding column to entries table...");
+        db.run("ALTER TABLE entries ADD COLUMN embedding BLOB", (err) => {
+          if (err) {
+            console.error("Error adding embedding column:", err);
+          } else {
+            console.log("Embedding column added successfully");
+          }
+        });
+      }
+    });
 
     // Create Tags table
     db.run(`

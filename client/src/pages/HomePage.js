@@ -153,7 +153,23 @@ const HomePage = () => {
   const handleCreateEntry = async (text) => {
     try {
       setIsProcessing(true);
-      const newEntry = await EntriesAPI.create(text);
+      const response = await EntriesAPI.create(text);
+
+      // Handle the new response format which includes {entry, type}
+      const newEntry = response.entry || response;
+
+      // Log the entry for debugging
+      console.log("New entry created:", newEntry);
+
+      // Ensure the entry has all required fields
+      if (!newEntry.created_at) {
+        newEntry.created_at = new Date().toISOString();
+      }
+      if (!newEntry.tags) {
+        newEntry.tags = [];
+      }
+
+      // Add entry to the local state
       setEntries([newEntry, ...entries]);
       setError(null);
 
