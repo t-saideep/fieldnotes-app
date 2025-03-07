@@ -7,6 +7,24 @@
 
 import axios from "axios";
 
+// Track in-flight requests to avoid duplicates
+const pendingRequests = {};
+
+// Simple debounce function
+const debounce = (func, wait) => {
+  let timeout;
+  return function (...args) {
+    const context = this;
+    clearTimeout(timeout);
+    return new Promise((resolve) => {
+      timeout = setTimeout(() => {
+        const result = func.apply(context, args);
+        resolve(result);
+      }, wait);
+    });
+  };
+};
+
 // Determine the API base URL dynamically
 const getBaseUrl = () => {
   try {
@@ -218,17 +236,44 @@ export const SearchAPI = {
    */
   search: async (query) => {
     try {
-      const response = await api.post("/search", { query });
-      if (response.data && response.data.success) {
-        return response.data.data;
-      } else {
-        throw new Error(response.data.error || "Unknown search error");
+      // Create unique key for this search request
+      const requestKey = `search:${query}`;
+
+      // If this exact search is already in progress, return the existing promise
+      if (pendingRequests[requestKey]) {
+        console.log(`Using existing search request for "${query}"`);
+        return pendingRequests[requestKey];
       }
+
+      // Create a new promise for this search request
+      const searchPromise = (async () => {
+        try {
+          const response = await api.post("/search", { query });
+          if (response.data && response.data.success) {
+            return response.data.data;
+          } else {
+            throw new Error(response.data.error || "Unknown search error");
+          }
+        } finally {
+          // Remove from pending requests once completed (whether success or error)
+          delete pendingRequests[requestKey];
+        }
+      })();
+
+      // Store the promise so concurrent requests can use it
+      pendingRequests[requestKey] = searchPromise;
+
+      return searchPromise;
     } catch (error) {
       console.error("Error performing search:", error);
       throw error;
     }
   },
+
+  // Debounced version for search input
+  debouncedSearch: debounce(async (query) => {
+    return SearchAPI.search(query);
+  }, 300),
 
   /**
    * Search for tags (autocomplete)

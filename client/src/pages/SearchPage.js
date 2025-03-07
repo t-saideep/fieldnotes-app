@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import SearchBar from "../components/SearchBar";
 import SearchResults from "../components/SearchResults";
 import api from "../services/api";
+import { SearchAPI } from "../services/api";
 
 /**
  * Search Page Component
@@ -100,7 +101,8 @@ const SearchPage = () => {
       url.searchParams.delete("tag");
       window.history.pushState({}, "", url);
 
-      const results = await api.search(query);
+      // Use the debounced search API to prevent duplicate requests
+      const results = await SearchAPI.debouncedSearch(query);
       setSearchResults(results);
     } catch (err) {
       console.error("Error performing search:", err);

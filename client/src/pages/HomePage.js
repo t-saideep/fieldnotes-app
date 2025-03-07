@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import Header from "../components/Header";
 import NoteForm from "../components/NoteForm";
@@ -38,6 +38,39 @@ const HomePage = () => {
   const [editingEntry, setEditingEntry] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  /**
+   * Handle search query submission
+   * @param {string} query - The search query
+   */
+  const handleSearch = useCallback(
+    async (query) => {
+      if (!query || query.trim() === "") {
+        setSearchResults(null);
+        navigate("/");
+        return;
+      }
+
+      try {
+        setIsSearching(true);
+        setError(null);
+
+        // Update URL to include search parameter
+        navigate(`/?search=${encodeURIComponent(query)}`, { replace: true });
+
+        // Execute search using debounced function to prevent duplicate requests
+        const results = await SearchAPI.debouncedSearch(query);
+        setSearchResults(results);
+      } catch (err) {
+        console.error("Search error:", err);
+        setError("Error processing search. Please try a different query.");
+        setSearchResults(null);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [navigate]
+  );
+
   // Initial data loading
   useEffect(() => {
     if (searchParam) {
@@ -45,7 +78,7 @@ const HomePage = () => {
     } else {
       fetchEntries();
     }
-  }, [searchParam]);
+  }, [searchParam, handleSearch]);
 
   /**
    * Fetch all entries from the API
@@ -186,36 +219,6 @@ const HomePage = () => {
    */
   const handleCancelEdit = () => {
     setEditingEntry(null);
-  };
-
-  /**
-   * Handle search query submission
-   * @param {string} query - The search query
-   */
-  const handleSearch = async (query) => {
-    if (!query || query.trim() === "") {
-      setSearchResults(null);
-      navigate("/");
-      return;
-    }
-
-    try {
-      setIsSearching(true);
-      setError(null);
-
-      // Update URL to include search parameter
-      navigate(`/?search=${encodeURIComponent(query)}`, { replace: true });
-
-      // Execute search
-      const results = await SearchAPI.search(query);
-      setSearchResults(results);
-    } catch (err) {
-      console.error("Search error:", err);
-      setError("Error processing search. Please try a different query.");
-      setSearchResults(null);
-    } finally {
-      setIsSearching(false);
-    }
   };
 
   /**

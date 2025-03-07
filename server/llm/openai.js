@@ -103,7 +103,7 @@ async function answerQuery(query, entries) {
         },
         {
           role: "user",
-          content: `I have the following personal notes:\n\n${formattedEntries}\n\nBased only on these notes, answer this question: ${query}\n\nAFTER your answer, on a new line, provide the ENTRY NUMBERS (not IDs) that were relevant to answering the query in EXACTLY this format:\nRELEVANT_ENTRIES:[1,2,...]\n\nOnly include entries that are directly relevant to answering the query. If no entries are relevant, return RELEVANT_ENTRIES:[]`,
+          content: `I have the following personal notes:\n\n${formattedEntries}\n\nBased only on these notes, answer this question: ${query}\n\nAFTER your answer, include a separate line break, then provide the ENTRY NUMBERS (not IDs) that were relevant to answering the query in EXACTLY this format:\nRELEVANT_ENTRIES:[1,2,...]\n\nThe RELEVANT_ENTRIES format must be separate from your main answer and must appear on its own line. Do not include this format within paragraphs of your answer.\n\nOnly include entries that are directly relevant to answering the query. If no entries are relevant, return RELEVANT_ENTRIES:[]`,
         },
       ],
       temperature: 0.3,
@@ -139,7 +139,7 @@ async function answerQuery(query, entries) {
       console.log("Mapped to database IDs:", relevantIds);
 
       // Remove the RELEVANT_ENTRIES part from the content for the final answer
-      const answer = content.replace(/RELEVANT_ENTRIES:\[.*?\]/, "").trim();
+      const answer = content.replace(/RELEVANT_ENTRIES:\[.*?\]/g, "").trim();
       console.log("Final answer:", answer);
 
       return {
@@ -148,7 +148,8 @@ async function answerQuery(query, entries) {
       };
     } else {
       console.log("No relevant entries format found in the response");
-      const answer = content.trim();
+      // Even if the format wasn't properly detected, still attempt to remove any RELEVANT_ENTRIES text
+      const answer = content.replace(/RELEVANT_ENTRIES:\[.*?\]/g, "").trim();
       return {
         answer,
         relevantIds: [],
