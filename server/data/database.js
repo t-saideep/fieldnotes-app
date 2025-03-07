@@ -79,6 +79,8 @@ function initDatabase() {
             console.log("Embedding column added successfully");
           }
         });
+      } else {
+        console.log("Embedding column already exists in entries table");
       }
     });
 

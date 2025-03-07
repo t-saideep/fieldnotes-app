@@ -187,6 +187,25 @@ class Entry {
     }
   }
 
+  // Simple cache for recent search results to improve performance
+  static similarityCache = {
+    cache: new Map(),
+    maxEntries: 20,
+
+    get(queryHash) {
+      return this.cache.get(queryHash);
+    },
+
+    set(queryHash, results) {
+      // If cache is full, remove oldest entry
+      if (this.cache.size >= this.maxEntries) {
+        const oldestKey = this.cache.keys().next().value;
+        this.cache.delete(oldestKey);
+      }
+      this.cache.set(queryHash, results);
+    },
+  };
+
   /**
    * Find entries by vector similarity or fallback to recent entries
    * @param {Float32Array|null} queryEmbedding - The query vector embedding (optional)
@@ -194,17 +213,194 @@ class Entry {
    * @returns {Promise<Array>} Array of entry objects
    */
   static async findSimilar(queryEmbedding, limit = 5) {
-    // When no vector search is available, fall back to recent entries
-    console.log("Using fallback search with recent entries");
-    const entries = await this.getAll(limit);
+    try {
+      if (!queryEmbedding) {
+        console.log("No embedding provided, falling back to recent entries");
+        return await this.getAll(limit);
+      }
 
-    // Ensure entries have proper date formatting
-    return entries.map((entry) => ({
-      ...entry,
-      created_at: entry.created_at || new Date().toISOString(),
-      updated_at: entry.updated_at || new Date().toISOString(),
-      tags: [], // Add empty tags array for backward compatibility
-    }));
+      // Convert embedding Float32Array to standard JS array for easier handling
+      const queryVector = Array.from(queryEmbedding);
+
+      // Create a simple hash of the query for caching
+      const queryHash = queryVector.slice(0, 10).join("|") + "|" + limit;
+
+      // Check if we have cached results for this query
+      const cachedResults = this.similarityCache.get(queryHash);
+      if (cachedResults) {
+        console.log("Using cached similarity search results");
+        return cachedResults;
+      }
+
+      console.log("Using JavaScript similarity search");
+
+      // Use pagination to avoid loading all entries at once
+      const BATCH_SIZE = 25;
+      let topMatches = [];
+      let offset = 0;
+      let hasMoreEntries = true;
+
+      while (hasMoreEntries) {
+        console.log(
+          `Fetching batch of entries (offset: ${offset}, limit: ${BATCH_SIZE})...`
+        );
+
+        // Get entries with embeddings in batches
+        const batchEntries = await all(
+          "SELECT id, raw_text, embedding, created_at, updated_at FROM entries WHERE embedding IS NOT NULL ORDER BY id LIMIT ? OFFSET ?",
+          [BATCH_SIZE, offset]
+        );
+
+        if (!batchEntries || batchEntries.length === 0) {
+          hasMoreEntries = false;
+          continue;
+        }
+
+        // Calculate similarity scores for this batch
+        const batchWithScores = batchEntries
+          .filter((entry) => entry.embedding) // Ensure embedding exists
+          .map((entry) => {
+            try {
+              // Convert blob to Float32Array
+              const buffer = entry.embedding;
+              const entryEmbedding = new Float32Array(
+                buffer.buffer,
+                buffer.byteOffset,
+                buffer.byteLength / 4
+              );
+              const entryVector = Array.from(entryEmbedding);
+
+              // Calculate cosine similarity
+              const dotProduct = queryVector.reduce(
+                (sum, val, i) => sum + val * entryVector[i],
+                0
+              );
+              const queryMagnitude = Math.sqrt(
+                queryVector.reduce((sum, val) => sum + val * val, 0)
+              );
+              const entryMagnitude = Math.sqrt(
+                entryVector.reduce((sum, val) => sum + val * val, 0)
+              );
+
+              const similarity = dotProduct / (queryMagnitude * entryMagnitude);
+
+              return {
+                ...entry,
+                similarity,
+              };
+            } catch (error) {
+              console.warn(
+                `Error calculating similarity for entry ${entry.id}:`,
+                error.message
+              );
+              return {
+                ...entry,
+                similarity: -1, // Mark as invalid with negative similarity
+              };
+            }
+          })
+          .filter((entry) => entry.similarity > -1); // Filter out entries with errors
+
+        // Merge with top matches
+        topMatches = [...topMatches, ...batchWithScores]
+          .sort((a, b) => b.similarity - a.similarity) // Sort by similarity (descending)
+          .slice(0, limit); // Keep only top N matches
+
+        // Update offset for next batch
+        offset += BATCH_SIZE;
+
+        // If we have enough highly similar results or no more entries, stop processing
+        if (
+          topMatches.length === limit &&
+          topMatches[limit - 1].similarity > 0.8
+        ) {
+          console.log(
+            "Found highly similar entries, stopping batch processing"
+          );
+          hasMoreEntries = false;
+        }
+
+        // Set a reasonable limit for the number of batches (e.g., process at most 10 batches = 250 entries)
+        if (offset >= BATCH_SIZE * 10) {
+          console.log("Reached maximum number of batches, stopping processing");
+          hasMoreEntries = false;
+        }
+      }
+
+      if (topMatches.length > 0) {
+        console.log(
+          `Found ${topMatches.length} similar entries using JS similarity calculation`
+        );
+
+        // Process the results for consistent format
+        const formattedResults = topMatches.map((entry) => ({
+          id: entry.id,
+          raw_text: entry.raw_text,
+          created_at: entry.created_at || new Date().toISOString(),
+          updated_at: entry.updated_at || new Date().toISOString(),
+          tags: [], // Add empty tags array for backward compatibility
+        }));
+
+        // Cache the results
+        this.similarityCache.set(queryHash, formattedResults);
+
+        return formattedResults;
+      }
+
+      // If no similar entries found, fall back to recent entries
+      console.log("No similar entries found, falling back to recent entries");
+      const entries = await this.getAll(limit);
+
+      // Ensure entries have proper date formatting
+      return entries.map((entry) => ({
+        ...entry,
+        created_at: entry.created_at || new Date().toISOString(),
+        updated_at: entry.updated_at || new Date().toISOString(),
+        tags: [], // Add empty tags array for backward compatibility
+      }));
+    } catch (error) {
+      console.error("Error in vector similarity search:", error);
+      // Fall back to basic search
+      console.log("Error occurred, falling back to recent entries");
+      return await this.getAll(limit);
+    }
+  }
+
+  /**
+   * Update an entry's embedding
+   * @param {number} id - The entry ID
+   * @param {Float32Array} embedding - The vector embedding
+   * @returns {Promise<boolean>} Success indicator
+   */
+  static async updateEmbedding(id, embedding) {
+    try {
+      if (!embedding) {
+        console.warn("No embedding provided to updateEmbedding");
+        return false;
+      }
+
+      // Convert the embedding to a binary buffer
+      const embeddingBlob = Buffer.from(new Float32Array(embedding).buffer);
+
+      // Update the embedding in the entries table
+      await run(
+        "UPDATE entries SET embedding = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [embeddingBlob, id]
+      );
+
+      console.log(`Updated vector embedding for entry ${id}`);
+
+      // Clear the similarity cache when updating embeddings
+      if (this.similarityCache && this.similarityCache.cache) {
+        this.similarityCache.cache.clear();
+        console.log("Cleared similarity cache after embedding update");
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error updating entry embedding:", error);
+      throw error;
+    }
   }
 }
 

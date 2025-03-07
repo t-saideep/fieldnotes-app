@@ -113,6 +113,7 @@
   font-size: 1rem;
   color: var(--text-primary);
   line-height: 1.6;
+  white-space: pre-line;
 }
 
 .note-card__meta {

@@ -91,16 +91,42 @@ async function searchAndAnswer(searchQuery) {
 
     // Get answer from LLM
     let answer;
+    let relevantEntries = entries;
     try {
-      answer = await answerQuery(searchQuery, entries);
+      const llmResponse = await answerQuery(searchQuery, entries);
+      console.log("LLM response:", JSON.stringify(llmResponse));
+
+      answer = llmResponse.answer;
+
+      // Filter entries to only include relevant ones if provided
+      if (llmResponse.relevantIds && llmResponse.relevantIds.length > 0) {
+        relevantEntries = entries.filter((entry) =>
+          llmResponse.relevantIds.includes(entry.id)
+        );
+
+        console.log(
+          `Filtered to ${relevantEntries.length} relevant entries out of ${entries.length} total entries`
+        );
+
+        // If no relevant entries were found after filtering, use all entries
+        if (relevantEntries.length === 0) {
+          console.log(
+            "No relevant entries found after filtering, showing all retrieved entries"
+          );
+          relevantEntries = entries;
+        }
+      }
     } catch (error) {
       console.error("Error getting answer from LLM:", error);
       answer = "I couldn't generate an answer for this query.";
     }
 
+    console.log("Final answer to return:", answer);
+    console.log("Number of entries to display:", relevantEntries.length);
+
     // Return entries and answer
     return {
-      entries,
+      entries: relevantEntries,
       type: "search",
       query: searchQuery,
       summary: answer,

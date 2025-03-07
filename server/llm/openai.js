@@ -74,7 +74,7 @@ async function generateEmbedding(text) {
  * Answer a search query with the provided entries
  * @param {string} query - The user's search query
  * @param {Array<object>} entries - Array of entries relevant to the query
- * @returns {Promise<string>} The LLM's answer to the query
+ * @returns {Promise<object>} The LLM's answer to the query and relevant entry IDs
  */
 async function answerQuery(query, entries) {
   try {
@@ -103,24 +103,74 @@ async function answerQuery(query, entries) {
         },
         {
           role: "user",
-          content: `I have the following personal notes:\n\n${formattedEntries}\n\nBased only on these notes, answer this question: ${query}`,
+          content: `I have the following personal notes:\n\n${formattedEntries}\n\nBased only on these notes, answer this question: ${query}\n\nAFTER your answer, on a new line, provide the ENTRY NUMBERS (not IDs) that were relevant to answering the query in EXACTLY this format:\nRELEVANT_ENTRIES:[1,2,...]\n\nOnly include entries that are directly relevant to answering the query. If no entries are relevant, return RELEVANT_ENTRIES:[]`,
         },
       ],
       temperature: 0.3,
     });
 
-    return response.choices[0].message.content;
+    const content = response.choices[0].message.content;
+    console.log("LLM response content:", content);
+
+    // Extract the relevant entry indices from the response
+    let relevantIndices = [];
+    const relevantEntriesMatch = content.match(/RELEVANT_ENTRIES:\[(.*?)\]/);
+
+    if (relevantEntriesMatch && relevantEntriesMatch[1]) {
+      // Extract and parse the indices
+      const indicesString = relevantEntriesMatch[1];
+      relevantIndices = indicesString
+        .split(",")
+        .map((idx) => idx.trim())
+        .filter((idx) => idx)
+        .map((idx) => {
+          const parsed = parseInt(idx, 10);
+          return isNaN(parsed) ? null : parsed - 1; // Convert from 1-indexed to 0-indexed
+        })
+        .filter((idx) => idx !== null);
+
+      console.log("Extracted relevant indices (0-indexed):", relevantIndices);
+
+      // Map the indices to actual database IDs
+      const relevantIds = relevantIndices
+        .filter((idx) => idx >= 0 && idx < entries.length)
+        .map((idx) => entries[idx].id);
+
+      console.log("Mapped to database IDs:", relevantIds);
+
+      // Remove the RELEVANT_ENTRIES part from the content for the final answer
+      const answer = content.replace(/RELEVANT_ENTRIES:\[.*?\]/, "").trim();
+      console.log("Final answer:", answer);
+
+      return {
+        answer,
+        relevantIds,
+      };
+    } else {
+      console.log("No relevant entries format found in the response");
+      const answer = content.trim();
+      return {
+        answer,
+        relevantIds: [],
+      };
+    }
   } catch (error) {
     console.error("Error generating answer:", error);
 
     // Provide a useful error message
+    let errorMessage;
     if (error.status === 401) {
-      return `I couldn't answer your query because of an authentication error with OpenAI. Please check your API key in server/.env file.`;
+      errorMessage = `I couldn't answer your query because of an authentication error with OpenAI. Please check your API key in server/.env file.`;
     } else if (error.status === 429) {
-      return `I couldn't answer your query because the OpenAI API rate limit was exceeded. Please try again later.`;
+      errorMessage = `I couldn't answer your query because the OpenAI API rate limit has been exceeded. Please try again later.`;
     } else {
-      return `I couldn't generate an answer for this query due to an API error. Please check server logs for details.`;
+      errorMessage = `I couldn't answer your query due to an error: ${error.message}`;
     }
+
+    return {
+      answer: errorMessage,
+      relevantIds: [],
+    };
   }
 }
 

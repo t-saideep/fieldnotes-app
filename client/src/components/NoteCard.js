@@ -85,7 +85,9 @@ const NoteCard = ({ entry, onEdit, onDelete }) => {
       variants={cardVariants}
       layout
     >
-      <p className="note-card__text">{entry.raw_text}</p>
+      <p className="note-card__text" style={{ whiteSpace: "pre-line" }}>
+        {entry.raw_text}
+      </p>
 
       {/* Metadata and actions */}
       <div className="note-card__meta">
