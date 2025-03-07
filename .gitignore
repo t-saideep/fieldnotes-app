@@ -1,0 +1,78 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.new
+server/.env
+server/.env.new
+
+# Cache directories
+.npm
+.eslintcache
+.cache
+.parcel-cache
+
+# Coverage directory
+coverage/
+
+# IDE / Editor specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+.thumbs.db
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Debug log from npm
+npm-debug.log
+
+# Local package manager specific
+.yarn/
+.yarnrc
+yarn.lock
+.pnp.*
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional eslint cache
+.eslintcache
+
+# Docker files
+docker-compose.override.yml
+
+# Database dumps/exports
+*.sql
+*.dump
+server/data-store/fieldnotes.db
+server/data-store/*.db
+server/data-store/*.sqlite
+
+# Uploaded files (if not part of version control)
+uploads/ 
