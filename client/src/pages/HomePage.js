@@ -33,6 +33,7 @@ const HomePage = () => {
   // Search state
   const [searchResults, setSearchResults] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Edit state
   const [editingEntry, setEditingEntry] = useState(null);
@@ -46,6 +47,7 @@ const HomePage = () => {
     async (query) => {
       if (!query || query.trim() === "") {
         setSearchResults(null);
+        setSearchQuery("");
         navigate("/");
         return;
       }
@@ -53,6 +55,7 @@ const HomePage = () => {
       try {
         setIsSearching(true);
         setError(null);
+        setSearchQuery(query);
 
         // Update URL to include search parameter
         navigate(`/?search=${encodeURIComponent(query)}`, { replace: true });
@@ -74,8 +77,10 @@ const HomePage = () => {
   // Initial data loading
   useEffect(() => {
     if (searchParam) {
+      setSearchQuery(searchParam);
       handleSearch(searchParam);
     } else {
+      setSearchQuery("");
       fetchEntries();
     }
   }, [searchParam, handleSearch]);
@@ -226,6 +231,7 @@ const HomePage = () => {
    */
   const handleClearSearch = () => {
     setSearchResults(null);
+    setSearchQuery("");
     // Remove search parameter from URL
     navigate("/", { replace: true });
   };
@@ -258,10 +264,29 @@ const HomePage = () => {
               onClick={handleClearSearch}
               disabled={isSearching}
             >
-              Clear Search
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ marginRight: "8px" }}
+              >
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+              Back to Home
             </button>
           </div>
-          <SearchResults results={searchResults} onClear={handleClearSearch} />
+          <SearchResults
+            results={searchResults}
+            onEditEntry={handleEditEntry}
+            onDeleteEntry={handleDeleteEntry}
+          />
         </div>
       );
     }
@@ -297,22 +322,25 @@ const HomePage = () => {
         <div className="container">
           <div className="search-section">
             <SearchBar
-              initialQuery={searchParam || ""}
+              initialQuery={searchQuery}
               onSearch={handleSearch}
               isSearching={isSearching}
             />
           </div>
 
-          <div className="form-section">
-            <NoteForm
-              initialText={editingEntry ? editingEntry.raw_text : ""}
-              isSubmitting={isProcessing}
-              onSubmit={editingEntry ? handleUpdateEntry : handleCreateEntry}
-              onCancel={editingEntry ? handleCancelEdit : null}
-              title={editingEntry ? "Edit Note" : "Add Note"}
-              submitLabel={editingEntry ? "Update" : "Save Note"}
-            />
-          </div>
+          {/* Only show the form section when not in search results mode */}
+          {!searchResults && (
+            <div className="form-section">
+              <NoteForm
+                initialText={editingEntry ? editingEntry.raw_text : ""}
+                isSubmitting={isProcessing}
+                onSubmit={editingEntry ? handleUpdateEntry : handleCreateEntry}
+                onCancel={editingEntry ? handleCancelEdit : null}
+                title={editingEntry ? "Edit Note" : "Add Note"}
+                submitLabel={editingEntry ? "Update" : "Save Note"}
+              />
+            </div>
+          )}
 
           {renderMainContent()}
         </div>

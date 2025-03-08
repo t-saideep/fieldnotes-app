@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import "../styles/components.css";
 
@@ -9,12 +9,18 @@ import "../styles/components.css";
  * Used for searching notes with natural language queries.
  *
  * @param {Object} props - Component props
+ * @param {string} props.initialQuery - Initial query value from parent component
  * @param {Function} props.onSearch - Function called when search is submitted
  * @param {boolean} props.isSearching - Flag indicating if search is in progress
  * @returns {JSX.Element} Rendered search bar component
  */
-const SearchBar = ({ onSearch, isSearching = false }) => {
-  const [query, setQuery] = useState("");
+const SearchBar = ({ initialQuery = "", onSearch, isSearching = false }) => {
+  const [query, setQuery] = useState(initialQuery);
+
+  // Update query when initialQuery changes
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
 
   /**
    * Handle form submission
