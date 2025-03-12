@@ -4,7 +4,7 @@
  */
 
 const { Entry } = require("./models");
-const { generateEmbedding } = require("../llm/openai");
+const { generateEmbedding } = require("../llm/llm");
 const { all, run } = require("./database");
 
 async function migrateToVectorSearch() {

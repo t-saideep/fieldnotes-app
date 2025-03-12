@@ -4,7 +4,7 @@
  */
 
 const { Entry } = require("../data/models");
-const { generateEmbedding, answerQuery } = require("./openai");
+const { generateEmbedding, answerQuery } = require("./llm");
 
 /**
  * Process a new note: generate embeddings and save to database
